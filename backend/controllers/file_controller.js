@@ -28,12 +28,10 @@ module.exports.upload = async function(req, res) {
     }
 }
 
-/** ------------------ EXPORTING FUNCTION To open file viewer page ------------------ **/
-module.exports.view = async function(req, res) {
+/** ------------------ EXPORTING FUNCTION To get All files ------------------ **/
+module.exports.getAll = async function(req, res) {
     try {
-        // console.log(req.params);
         let csvFile = await CSV.findOne({file: req.params.id});
-        // console.log(csvFile);
         const results = [];
         const header =[];
         fs.createReadStream(csvFile.filePath) //seeting up the path for file upload
@@ -42,28 +40,23 @@ module.exports.view = async function(req, res) {
             headers.map((head) => {
                 header.push(head);
             });
-            // console.log(header);
         })
         .on('data', (data) =>
         results.push(data))
         .on('end', () => {
-            // console.log(results.length);
-            // console.log(results);
-            res.render("file_viewer", {
-                title: "File Viewer",
+            res.status(200).json({
                 fileName: csvFile.fileName,
                 head: header,
                 data: results,
                 length: results.length
             });
         });
-
-
     } catch (error) {
         console.log('Error in fileController/view', error);
         res.status(500).send('Internal server error');
     }
 }
+
 
 /** ------------------ EXPORTING FUNCTION To delete the file ------------------ **/
 module.exports.delete = async function(req, res) {
@@ -83,3 +76,27 @@ module.exports.delete = async function(req, res) {
         return;
     }
 }
+
+/** ------------------ EXPORTING FUNCTION To search file ------------------ **/
+module.exports.search = async function(req, res) {
+    try {
+        let query = {};
+        let searchValue = req.query.search;
+        if (searchValue) {
+            let regex = new RegExp(searchValue, 'i');
+            let fields = Object.keys(CSV.schema.paths);
+            let orQueries = fields.map(field => ({ [field]: regex }));
+            query = { $or: orQueries };
+        }
+        let files = await CSV.find(query);
+        if (files.length === 0) {
+            return res.status(404).json({ message: 'Nenhum arquivo encontrado.' });
+        }
+        return res.status(200).json(files);
+    } catch (error) {
+        console.log('Error in fileController/search', error);
+        res.status(500).send('Internal server error');
+    }
+}
+
+
